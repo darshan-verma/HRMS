@@ -1,0 +1,399 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  users       User[]
+  departments Department[]
+  employees   Employee[]
+  leavePolicy LeavePolicy[]
+  leaveReq    LeaveRequest[]
+  attendance  Attendance[]
+  payrolls    PayrollLedger[]
+  auditLogs   AuditLog[]
+  documents   EmployeeDocument[]
+  shifts      Shift[]
+  leaveBal    LeaveBalance[]
+  shiftAssignments EmployeeShiftAssignment[]
+  payrollRuns PayrollRun[]
+  salaryStructures SalaryStructure[]
+  payslips Payslip[]
+  jobPostings JobPosting[]
+  candidates Candidate[]
+  interviews Interview[]
+}
+
+model User {
+  id           String         @id @default(cuid())
+  orgId        String
+  email        String
+  role         String
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  organization Organization   @relation(fields: [orgId], references: [id])
+  sessions     Session[]
+  refreshToken RefreshToken[]
+
+  @@unique([orgId, email])
+  @@index([orgId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  ip        String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Department {
+  id             String        @id @default(cuid())
+  orgId          String
+  parentId       String?
+  name           String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [orgId], references: [id])
+  parent         Department?   @relation("DepartmentTree", fields: [parentId], references: [id])
+  children       Department[]  @relation("DepartmentTree")
+  employees      Employee[]
+
+  @@index([orgId])
+  @@index([parentId])
+  @@unique([orgId, name])
+}
+
+model Employee {
+  id              String        @id @default(cuid())
+  orgId           String
+  departmentId    String?
+  employeeCode    String
+  fullName        String
+  designation     String
+  salaryEncrypted String?
+  isDeleted       Boolean       @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  organization    Organization  @relation(fields: [orgId], references: [id])
+  department      Department?   @relation(fields: [departmentId], references: [id])
+  attendance      Attendance[]
+  leaveRequests   LeaveRequest[]
+  payrollLedgers  PayrollLedger[]
+  documents       EmployeeDocument[]
+  shiftAssignments EmployeeShiftAssignment[]
+  leaveBalances    LeaveBalance[]
+  salaryStructures SalaryStructure[]
+  payslips Payslip[]
+
+  @@unique([orgId, employeeCode])
+  @@index([orgId])
+  @@index([departmentId])
+}
+
+model EmployeeDocument {
+  id               String       @id @default(cuid())
+  orgId            String
+  employeeId       String
+  storageKey       String
+  originalFilename String
+  mimeType         String
+  sizeBytes        Int
+  uploadedByUserId String?
+  isDeleted        Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  organization     Organization @relation(fields: [orgId], references: [id])
+  employee         Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([orgId, employeeId])
+  @@index([storageKey])
+}
+
+model Attendance {
+  id             String        @id @default(cuid())
+  orgId          String
+  employeeId     String
+  attendanceDate DateTime
+  status         String
+  checkInAt      DateTime?
+  checkOutAt     DateTime?
+  shiftId        String?
+  createdAt      DateTime      @default(now())
+  organization   Organization  @relation(fields: [orgId], references: [id])
+  employee       Employee      @relation(fields: [employeeId], references: [id])
+  shift          Shift?        @relation(fields: [shiftId], references: [id])
+
+  @@unique([orgId, employeeId, attendanceDate])
+  @@index([orgId, attendanceDate])
+  @@index([employeeId])
+  @@index([shiftId])
+}
+
+model LeavePolicy {
+  id             String        @id @default(cuid())
+  orgId          String
+  leaveType      String
+  annualQuota    Int
+  carryForward   Boolean       @default(false)
+  accrualPerMonth Decimal      @db.Decimal(8, 2)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [orgId], references: [id])
+  leaveRequests  LeaveRequest[]
+  balances       LeaveBalance[]
+
+  @@index([orgId])
+  @@unique([orgId, leaveType])
+}
+
+model LeaveRequest {
+  id             String        @id @default(cuid())
+  orgId          String
+  employeeId     String
+  leavePolicyId  String
+  startDate      DateTime
+  endDate        DateTime
+  reason         String?
+  status         String
+  daysRequested  Decimal       @db.Decimal(6, 2)
+  approvedByUserId String?
+  approvedAt     DateTime?
+  rejectionReason String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [orgId], references: [id])
+  employee       Employee      @relation(fields: [employeeId], references: [id])
+  leavePolicy    LeavePolicy   @relation(fields: [leavePolicyId], references: [id])
+
+  @@index([orgId, status])
+  @@index([employeeId])
+  @@index([leavePolicyId])
+}
+
+model Shift {
+  id             String                    @id @default(cuid())
+  orgId          String
+  name           String
+  startMinute    Int
+  endMinute      Int
+  graceMinutes   Int                       @default(0)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  organization   Organization              @relation(fields: [orgId], references: [id])
+  assignments    EmployeeShiftAssignment[]
+  attendance     Attendance[]
+
+  @@index([orgId])
+  @@unique([orgId, name])
+}
+
+model EmployeeShiftAssignment {
+  id             String       @id @default(cuid())
+  orgId          String
+  employeeId     String
+  shiftId        String
+  effectiveFrom  DateTime
+  effectiveTo    DateTime?
+  createdAt      DateTime     @default(now())
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  shift          Shift        @relation(fields: [shiftId], references: [id])
+  organization   Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, employeeId, effectiveFrom])
+  @@index([shiftId])
+}
+
+model LeaveBalance {
+  id             String       @id @default(cuid())
+  orgId          String
+  employeeId     String
+  leavePolicyId  String
+  availableDays  Decimal      @db.Decimal(8, 2) @default(0)
+  carriedForward Decimal      @db.Decimal(8, 2) @default(0)
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [orgId], references: [id])
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  leavePolicy    LeavePolicy  @relation(fields: [leavePolicyId], references: [id])
+
+  @@unique([orgId, employeeId, leavePolicyId])
+  @@index([orgId, employeeId])
+}
+
+model PayrollLedger {
+  id            String        @id @default(cuid())
+  orgId         String
+  employeeId    String
+  period        String
+  grossAmount   Decimal       @db.Decimal(18, 2)
+  deductions    Decimal       @db.Decimal(18, 2)
+  netAmount     Decimal       @db.Decimal(18, 2)
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  organization  Organization  @relation(fields: [orgId], references: [id])
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+
+  @@index([orgId, period])
+  @@index([employeeId])
+}
+
+model SalaryStructure {
+  id                  String       @id @default(cuid())
+  orgId               String
+  employeeId          String
+  basic               Decimal      @db.Decimal(18, 2)
+  hra                 Decimal      @db.Decimal(18, 2)
+  specialAllowance    Decimal      @db.Decimal(18, 2)
+  otherAllowance      Decimal      @db.Decimal(18, 2) @default(0)
+  epfApplicable       Boolean      @default(true)
+  esiApplicable       Boolean      @default(false)
+  professionalTax     Decimal      @db.Decimal(18, 2) @default(0)
+  effectiveFrom       DateTime
+  effectiveTo         DateTime?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  organization        Organization @relation(fields: [orgId], references: [id])
+  employee            Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([orgId, employeeId, effectiveFrom])
+}
+
+model PayrollRun {
+  id                  String       @id @default(cuid())
+  orgId               String
+  period              String
+  status              String
+  startedAt           DateTime     @default(now())
+  completedAt         DateTime?
+  summary             Json?
+  createdByUserId     String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  organization        Organization @relation(fields: [orgId], references: [id])
+  payslips            Payslip[]
+
+  @@index([orgId, period, status])
+}
+
+model Payslip {
+  id                  String       @id @default(cuid())
+  orgId               String
+  employeeId          String
+  payrollRunId        String
+  period              String
+  grossAmount         Decimal      @db.Decimal(18, 2)
+  deductionAmount     Decimal      @db.Decimal(18, 2)
+  netAmount           Decimal      @db.Decimal(18, 2)
+  taxDeduction        Decimal      @db.Decimal(18, 2)
+  epfDeduction        Decimal      @db.Decimal(18, 2)
+  esiDeduction        Decimal      @db.Decimal(18, 2)
+  pdfStorageKey       String?
+  createdAt           DateTime     @default(now())
+  organization        Organization @relation(fields: [orgId], references: [id])
+  employee            Employee     @relation(fields: [employeeId], references: [id])
+  payrollRun          PayrollRun   @relation(fields: [payrollRunId], references: [id])
+
+  @@index([orgId, period])
+  @@index([employeeId, payrollRunId])
+}
+
+model JobPosting {
+  id             String       @id @default(cuid())
+  orgId          String
+  title          String
+  department     String
+  employmentType String
+  status         String
+  openings       Int          @default(1)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [orgId], references: [id])
+  candidates     Candidate[]
+
+  @@index([orgId, status])
+}
+
+model Candidate {
+  id                 String       @id @default(cuid())
+  orgId              String
+  jobPostingId       String
+  fullName           String
+  email              String
+  phone              String?
+  stage              String
+  status             String
+  source             String?
+  rating             Int?
+  resumeKey          String?
+  notes              String?
+  convertedEmployeeId String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  organization       Organization @relation(fields: [orgId], references: [id])
+  jobPosting         JobPosting   @relation(fields: [jobPostingId], references: [id])
+  interviews         Interview[]
+
+  @@unique([orgId, email])
+  @@index([orgId, stage, status])
+  @@index([jobPostingId])
+}
+
+model Interview {
+  id             String       @id @default(cuid())
+  orgId          String
+  candidateId    String
+  scheduledAt    DateTime
+  interviewerName String
+  mode           String
+  status         String
+  feedback       String?
+  score          Int?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [orgId], references: [id])
+  candidate      Candidate    @relation(fields: [candidateId], references: [id])
+
+  @@index([orgId, scheduledAt])
+  @@index([candidateId])
+}
+
+model AuditLog {
+  id            String        @id @default(cuid())
+  orgId         String
+  actorUserId   String?
+  action        String
+  resourceType  String
+  resourceId    String?
+  ipAddress     String?
+  userAgent     String?
+  metadata      Json?
+  hash          String?
+  createdAt     DateTime      @default(now())
+  organization  Organization  @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@index([actorUserId])
+}

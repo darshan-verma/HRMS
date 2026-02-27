@@ -1,0 +1,49 @@
+export const PERMISSIONS = {
+  EMPLOYEE_READ: "employee.read",
+  EMPLOYEE_WRITE: "employee.write",
+  ATTENDANCE_READ: "attendance.read",
+  ATTENDANCE_WRITE: "attendance.write",
+  SHIFT_READ: "shift.read",
+  SHIFT_WRITE: "shift.write",
+  LEAVE_READ: "leave.read",
+  LEAVE_WRITE: "leave.write",
+  LEAVE_APPROVE: "leave.approve",
+  RECRUITMENT_READ: "recruitment.read",
+  RECRUITMENT_WRITE: "recruitment.write",
+  AUDIT_READ: "audit.read",
+  PAYROLL_READ: "payroll.read",
+  PAYROLL_WRITE: "payroll.write"
+} as const;
+
+type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+
+const ROLE_PERMISSION_MAP: Record<string, Permission[]> = {
+  SUPER_ADMIN: Object.values(PERMISSIONS),
+  HR_ADMIN: [
+    PERMISSIONS.EMPLOYEE_READ,
+    PERMISSIONS.EMPLOYEE_WRITE,
+    PERMISSIONS.ATTENDANCE_READ,
+    PERMISSIONS.ATTENDANCE_WRITE,
+    PERMISSIONS.SHIFT_READ,
+    PERMISSIONS.SHIFT_WRITE,
+    PERMISSIONS.LEAVE_READ,
+    PERMISSIONS.LEAVE_WRITE,
+    PERMISSIONS.LEAVE_APPROVE,
+    PERMISSIONS.RECRUITMENT_READ,
+    PERMISSIONS.RECRUITMENT_WRITE,
+    PERMISSIONS.AUDIT_READ,
+    PERMISSIONS.PAYROLL_READ
+  ],
+  MANAGER: [
+    PERMISSIONS.EMPLOYEE_READ,
+    PERMISSIONS.ATTENDANCE_READ,
+    PERMISSIONS.LEAVE_READ,
+    PERMISSIONS.LEAVE_APPROVE,
+    PERMISSIONS.RECRUITMENT_READ
+  ],
+  EMPLOYEE: [PERMISSIONS.ATTENDANCE_READ, PERMISSIONS.LEAVE_READ]
+};
+
+export function hasPermission(role: string, permission: Permission): boolean {
+  return (ROLE_PERMISSION_MAP[role] ?? []).includes(permission);
+}
