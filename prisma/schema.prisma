@@ -30,6 +30,11 @@ model Organization {
   jobPostings JobPosting[]
   candidates Candidate[]
   interviews Interview[]
+  shiftRotations ShiftRotation[]
+  shiftRotationAssignments ShiftRotationAssignment[]
+  shiftChangeRequests ShiftChangeRequest[]
+  shiftCompliancePolicies ShiftCompliancePolicy[]
+  shiftOverrides ShiftOverride[]
 }
 
 model User {
@@ -82,6 +87,7 @@ model Department {
   parent         Department?   @relation("DepartmentTree", fields: [parentId], references: [id])
   children       Department[]  @relation("DepartmentTree")
   employees      Employee[]
+  shiftAssignments EmployeeShiftAssignment[]
 
   @@index([orgId])
   @@index([parentId])
@@ -110,6 +116,9 @@ model Employee {
   leaveBalances    LeaveBalance[]
   salaryStructures SalaryStructure[]
   payslips Payslip[]
+  shiftRotationAssignments ShiftRotationAssignment[]
+  shiftChangeRequests ShiftChangeRequest[]
+  shiftOverrides ShiftOverride[]
 
   @@unique([orgId, employeeCode])
   @@index([orgId])
@@ -196,36 +205,149 @@ model LeaveRequest {
 }
 
 model Shift {
-  id             String                    @id @default(cuid())
-  orgId          String
-  name           String
-  startMinute    Int
-  endMinute      Int
-  graceMinutes   Int                       @default(0)
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-  organization   Organization              @relation(fields: [orgId], references: [id])
-  assignments    EmployeeShiftAssignment[]
-  attendance     Attendance[]
+  id                      String                    @id @default(cuid())
+  orgId                   String
+  name                    String
+  code                    String?
+  startMinute             Int
+  endMinute               Int
+  graceMinutes            Int                       @default(0)
+  breakDurationMinutes    Int                       @default(0)
+  breakPaid               Boolean                  @default(false)
+  weeklyOffPattern        Json?                    // [0,6] = Sun, Sat off
+  earlyLeaveToleranceMinutes Int                   @default(0)
+  halfDayThresholdMinutes Int                      @default(240)  // 4h
+  overtimeEligible         Boolean                  @default(false)
+  overtimeMultiplier       Decimal?                 @db.Decimal(3, 2)  // 1.5, 2.0
+  minWorkingHoursMinutes   Int?                     // min hours to count full day
+  status                  String                   @default("ACTIVE")  // ACTIVE | INACTIVE
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  organization            Organization             @relation(fields: [orgId], references: [id])
+  assignments             EmployeeShiftAssignment[]
+  attendance              Attendance[]
+  changeRequestsFrom      ShiftChangeRequest[]     @relation("ShiftChangeFrom")
+  changeRequestsTo        ShiftChangeRequest[]     @relation("ShiftChangeTo")
+  overrides                ShiftOverride[]
 
   @@index([orgId])
+  @@index([orgId, status])
   @@unique([orgId, name])
 }
 
 model EmployeeShiftAssignment {
-  id             String       @id @default(cuid())
-  orgId          String
-  employeeId     String
-  shiftId        String
-  effectiveFrom  DateTime
-  effectiveTo    DateTime?
-  createdAt      DateTime     @default(now())
-  employee       Employee     @relation(fields: [employeeId], references: [id])
-  shift          Shift        @relation(fields: [shiftId], references: [id])
-  organization   Organization @relation(fields: [orgId], references: [id])
+  id              String       @id @default(cuid())
+  orgId           String
+  employeeId      String
+  shiftId         String
+  assignmentType  String       @default("INDIVIDUAL")  // INDIVIDUAL | DEPARTMENT | BULK
+  departmentId    String?
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  createdAt       DateTime     @default(now())
+  employee        Employee     @relation(fields: [employeeId], references: [id])
+  shift           Shift        @relation(fields: [shiftId], references: [id])
+  organization    Organization @relation(fields: [orgId], references: [id])
+  department      Department?  @relation(fields: [departmentId], references: [id])
 
   @@index([orgId, employeeId, effectiveFrom])
   @@index([shiftId])
+  @@index([departmentId])
+}
+
+model ShiftRotation {
+  id              String       @id @default(cuid())
+  orgId           String
+  name            String
+  rotationType    String       // WEEKLY | MONTHLY
+  shiftOrder      Json         // [shiftId1, shiftId2, ...] order of shifts in rotation
+  effectiveFrom   DateTime?
+  effectiveTo     DateTime?
+  status          String      @default("ACTIVE")   // ACTIVE | INACTIVE
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [orgId], references: [id])
+  assignments     ShiftRotationAssignment[]
+
+  @@index([orgId])
+  @@index([orgId, status])
+}
+
+model ShiftRotationAssignment {
+  id              String          @id @default(cuid())
+  orgId           String
+  employeeId      String
+  rotationId      String
+  effectiveFrom   DateTime
+  effectiveTo     DateTime?
+  createdAt       DateTime        @default(now())
+  employee        Employee        @relation(fields: [employeeId], references: [id])
+  rotation        ShiftRotation   @relation(fields: [rotationId], references: [id])
+  organization    Organization    @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, employeeId, effectiveFrom])
+  @@index([rotationId])
+}
+
+model ShiftChangeRequest {
+  id                String    @id @default(cuid())
+  orgId             String
+  employeeId        String
+  fromShiftId       String?
+  toShiftId         String
+  forDate           DateTime
+  reason            String?
+  status            String    @default("PENDING")   // PENDING | APPROVED | REJECTED
+  requestedByUserId String?
+  requestedAt       DateTime   @default(now())
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  organization      Organization @relation(fields: [orgId], references: [id])
+  employee          Employee     @relation(fields: [employeeId], references: [id])
+  fromShift         Shift?       @relation("ShiftChangeFrom", fields: [fromShiftId], references: [id])
+  toShift           Shift        @relation("ShiftChangeTo", fields: [toShiftId], references: [id])
+
+  @@index([orgId, status])
+  @@index([employeeId])
+}
+
+model ShiftCompliancePolicy {
+  id                      String       @id @default(cuid())
+  orgId                   String
+  maxHoursPerWeek         Int          @default(48)
+  minRestHoursBetweenShifts Decimal    @db.Decimal(4, 2) @default(8)  // 8h rest
+  maxOvertimeHoursPerMonth Decimal     @db.Decimal(5, 2) @default(50)
+  nightShiftStartHour     Int?         // e.g. 22 for 10 PM
+  nightShiftEndHour       Int?         // e.g. 6 for 6 AM
+  maxConsecutiveNightShifts Int?       @default(5)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  organization            Organization @relation(fields: [orgId], references: [id])
+
+  @@unique([orgId])
+  @@index([orgId])
+}
+
+model ShiftOverride {
+  id              String       @id @default(cuid())
+  orgId           String
+  employeeId      String
+  shiftId         String
+  forDate         DateTime
+  overrideType    String       // ONE_DAY | HOLIDAY | EMERGENCY
+  reason          String?
+  approvedByUserId String?
+  createdAt        DateTime    @default(now())
+  organization     Organization @relation(fields: [orgId], references: [id])
+  employee         Employee     @relation(fields: [employeeId], references: [id])
+  shift            Shift        @relation(fields: [shiftId], references: [id])
+
+  @@unique([orgId, employeeId, forDate])
+  @@index([orgId, forDate])
+  @@index([employeeId])
 }
 
 model LeaveBalance {
@@ -286,9 +408,16 @@ model PayrollRun {
   id                  String       @id @default(cuid())
   orgId               String
   period              String
-  status              String
+  status              String       // DRAFT | CALCULATING | AWAITING_APPROVAL | APPROVED | COMPLETED | LOCKED | REOPENED
+  runType             String       @default("REGULAR") // REGULAR | BONUS | ARREARS | ADJUSTMENT | FNF
   startedAt           DateTime     @default(now())
   completedAt         DateTime?
+  approvedByUserId    String?
+  approvedAt         DateTime?
+  lockedAt           DateTime?
+  lockedByUserId     String?
+  reopenedAt         DateTime?
+  reopenedByUserId   String?
   summary             Json?
   createdByUserId     String?
   createdAt           DateTime     @default(now())

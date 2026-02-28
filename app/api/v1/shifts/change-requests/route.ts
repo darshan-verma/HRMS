@@ -9,26 +9,17 @@ const createSchema = z.object({
   orgId: z.string().min(1),
   actorRole: z.string().min(1),
   actorUserId: z.string().optional(),
-  name: z.string().min(2),
-  code: z.string().optional(),
-  startMinute: z.number().int().min(0).max(1439),
-  endMinute: z.number().int().min(0).max(1439),
-  graceMinutes: z.number().int().min(0).max(180).default(0),
-  breakDurationMinutes: z.number().int().min(0).max(480).default(0),
-  breakPaid: z.boolean().default(false),
-  weeklyOffPattern: z.array(z.number().int().min(0).max(6)).optional(),
-  earlyLeaveToleranceMinutes: z.number().int().min(0).max(120).default(0),
-  halfDayThresholdMinutes: z.number().int().min(0).max(720).default(240),
-  overtimeEligible: z.boolean().default(false),
-  overtimeMultiplier: z.number().min(1).max(3).optional(),
-  minWorkingHoursMinutes: z.number().int().min(0).max(720).optional(),
-  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE")
+  employeeId: z.string().min(1),
+  fromShiftId: z.string().min(1).optional(),
+  toShiftId: z.string().min(1),
+  forDate: z.string().datetime(),
+  reason: z.string().optional()
 });
 
 const listSchema = z.object({
   orgId: z.string().min(1),
   actorRole: z.string().min(1),
-  status: z.enum(["ACTIVE", "INACTIVE", "all"]).optional()
+  status: z.enum(["PENDING", "APPROVED", "REJECTED", "all"]).optional()
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -37,16 +28,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (forbidden) return forbidden;
 
   const service = new ShiftService();
-  const shift = await service.createShift(input);
+  const request = await service.createChangeRequest(input);
   await createAuditLog({
     orgId: input.orgId,
     actorUserId: input.actorUserId,
-    action: "SHIFT_CREATE",
-    resourceType: "SHIFT",
-    resourceId: shift.id
+    action: "SHIFT_CHANGE_REQUEST_CREATE",
+    resourceType: "SHIFT_CHANGE_REQUEST",
+    resourceId: request.id
   });
-
-  return NextResponse.json(shift, { status: 201 });
+  return NextResponse.json(request, { status: 201 });
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -55,5 +45,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (forbidden) return forbidden;
 
   const service = new ShiftService();
-  return NextResponse.json(await service.listShifts(query.orgId, { status: query.status }));
+  return NextResponse.json(await service.listChangeRequests(query.orgId, query.status));
 }

@@ -1,5 +1,6 @@
 import { createAuditLog } from "@/lib/audit/audit-log";
 import { PERMISSIONS } from "@/lib/auth/rbac";
+import { prisma } from "@/lib/prisma";
 import { SalaryStructureService } from "@/src/modules/payroll/salary-structure.service";
 import { authorize } from "@/src/middlewares/authorize";
 import { NextRequest, NextResponse } from "next/server";
@@ -49,6 +50,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const forbidden = authorize(query.actorRole, PERMISSIONS.PAYROLL_READ);
   if (forbidden) return forbidden;
 
-  const service = new SalaryStructureService();
-  return NextResponse.json(await service.list(query.orgId, query.employeeId));
+  const structures = await prisma.salaryStructure.findMany({
+    where: {
+      orgId: query.orgId,
+      ...(query.employeeId ? { employeeId: query.employeeId } : {})
+    },
+    include: {
+      employee: { select: { id: true, employeeCode: true, fullName: true } }
+    },
+    orderBy: [{ effectiveFrom: "desc" }]
+  });
+  return NextResponse.json(structures);
 }

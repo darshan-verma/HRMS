@@ -10,18 +10,10 @@ const createSchema = z.object({
   actorRole: z.string().min(1),
   actorUserId: z.string().optional(),
   name: z.string().min(2),
-  code: z.string().optional(),
-  startMinute: z.number().int().min(0).max(1439),
-  endMinute: z.number().int().min(0).max(1439),
-  graceMinutes: z.number().int().min(0).max(180).default(0),
-  breakDurationMinutes: z.number().int().min(0).max(480).default(0),
-  breakPaid: z.boolean().default(false),
-  weeklyOffPattern: z.array(z.number().int().min(0).max(6)).optional(),
-  earlyLeaveToleranceMinutes: z.number().int().min(0).max(120).default(0),
-  halfDayThresholdMinutes: z.number().int().min(0).max(720).default(240),
-  overtimeEligible: z.boolean().default(false),
-  overtimeMultiplier: z.number().min(1).max(3).optional(),
-  minWorkingHoursMinutes: z.number().int().min(0).max(720).optional(),
+  rotationType: z.enum(["WEEKLY", "MONTHLY"]),
+  shiftOrder: z.array(z.string().min(1)),
+  effectiveFrom: z.string().datetime().optional(),
+  effectiveTo: z.string().datetime().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE")
 });
 
@@ -37,16 +29,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (forbidden) return forbidden;
 
   const service = new ShiftService();
-  const shift = await service.createShift(input);
+  const rotation = await service.createRotation(input);
   await createAuditLog({
     orgId: input.orgId,
     actorUserId: input.actorUserId,
-    action: "SHIFT_CREATE",
-    resourceType: "SHIFT",
-    resourceId: shift.id
+    action: "SHIFT_ROTATION_CREATE",
+    resourceType: "SHIFT_ROTATION",
+    resourceId: rotation.id
   });
-
-  return NextResponse.json(shift, { status: 201 });
+  return NextResponse.json(rotation, { status: 201 });
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -55,5 +46,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (forbidden) return forbidden;
 
   const service = new ShiftService();
-  return NextResponse.json(await service.listShifts(query.orgId, { status: query.status }));
+  return NextResponse.json(await service.listRotations(query.orgId, query.status));
 }

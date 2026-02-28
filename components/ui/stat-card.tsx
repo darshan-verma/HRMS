@@ -9,6 +9,7 @@ interface StatCardProps {
   icon: LucideIcon;
   iconColor?: string;
   iconBg?: string;
+  compact?: boolean;
 }
 
 export function StatCard({
@@ -18,14 +19,20 @@ export function StatCard({
   changeType = "neutral",
   icon: Icon,
   iconColor = "text-brand-600",
-  iconBg = "bg-brand-50"
+  iconBg = "bg-brand-50",
+  compact = false
 }: StatCardProps) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover">
+    <div
+      className={cn(
+        "rounded-xl border border-slate-200 bg-white shadow-card transition-shadow hover:shadow-card-hover",
+        compact ? "p-3" : "p-5"
+      )}
+    >
       <div className="flex items-start justify-between">
-        <div className="space-y-2">
+        <div className={cn("space-y-1", !compact && "space-y-2")}>
           <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{label}</p>
-          <p className="text-2xl font-bold text-slate-900">{value}</p>
+          <p className={cn("font-bold text-slate-900", compact ? "text-lg" : "text-2xl")}>{value}</p>
           {change && (
             <p
               className={cn(
@@ -39,8 +46,8 @@ export function StatCard({
             </p>
           )}
         </div>
-        <div className={cn("rounded-lg p-2.5", iconBg)}>
-          <Icon size={20} className={iconColor} />
+        <div className={cn(compact ? "rounded-md p-1.5" : "rounded-lg p-2.5", iconBg)}>
+          <Icon size={compact ? 16 : 20} className={iconColor} />
         </div>
       </div>
     </div>

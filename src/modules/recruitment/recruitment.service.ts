@@ -47,6 +47,18 @@ export class RecruitmentService {
     });
   }
 
+  async updateJobPosting(
+    orgId: string,
+    id: string,
+    data: { title?: string; department?: string; employmentType?: string; openings?: number; status?: string }
+  ) {
+    await prisma.jobPosting.findFirstOrThrow({ where: { id, orgId } });
+    return prisma.jobPosting.update({
+      where: { id },
+      data: { ...data, ...(data.openings != null && { openings: data.openings }) }
+    });
+  }
+
   async createCandidate(input: CreateCandidateInput) {
     return prisma.candidate.create({
       data: {
@@ -71,6 +83,24 @@ export class RecruitmentService {
       },
       orderBy: { createdAt: "desc" }
     });
+  }
+
+  async updateCandidate(
+    orgId: string,
+    id: string,
+    data: {
+      jobPostingId?: string;
+      fullName?: string;
+      email?: string;
+      phone?: string;
+      source?: string;
+      notes?: string;
+      stage?: string;
+      status?: string;
+    }
+  ) {
+    await prisma.candidate.findFirstOrThrow({ where: { id, orgId } });
+    return prisma.candidate.update({ where: { id }, data });
   }
 
   async scheduleInterview(input: ScheduleInterviewInput) {
@@ -99,6 +129,18 @@ export class RecruitmentService {
         }
       },
       orderBy: { scheduledAt: "asc" }
+    });
+  }
+
+  async updateInterview(
+    orgId: string,
+    id: string,
+    data: { scheduledAt?: string; interviewerName?: string; mode?: string; status?: string }
+  ) {
+    await prisma.interview.findFirstOrThrow({ where: { id, orgId } });
+    return prisma.interview.update({
+      where: { id },
+      data: { ...data, ...(data.scheduledAt != null && { scheduledAt: new Date(data.scheduledAt) }) }
     });
   }
 

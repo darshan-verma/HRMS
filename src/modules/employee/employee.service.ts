@@ -16,7 +16,7 @@ const updateEmployeeSchema = z.object({
   employeeId: z.string().min(1),
   fullName: z.string().min(2).optional(),
   designation: z.string().min(2).optional(),
-  departmentId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).nullable().optional(),
   salaryPlain: z.string().optional()
 });
 
@@ -42,7 +42,8 @@ export class EmployeeService {
         where: { orgId, isDeleted: false },
         skip,
         take: pageSize,
-        orderBy: { createdAt: "desc" }
+        orderBy: { createdAt: "desc" },
+        include: { department: { select: { id: true, name: true } } }
       }),
       prisma.employee.count({ where: { orgId, isDeleted: false } })
     ]);

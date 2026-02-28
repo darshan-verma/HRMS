@@ -27,6 +27,18 @@ async function run(): Promise<void> {
       isActive: true
     }
   });
+
+  // Seed departments so employees can be assigned
+  const departmentNames = ["Engineering", "Product", "Human Resources", "Finance"];
+  for (const name of departmentNames) {
+    await prisma.department.upsert({
+      where: {
+        orgId_name: { orgId: organization.id, name }
+      },
+      update: {},
+      create: { orgId: organization.id, name }
+    });
+  }
 }
 
 run()

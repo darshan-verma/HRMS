@@ -54,4 +54,67 @@ export class SalaryStructureService {
       orderBy: [{ effectiveFrom: "desc" }]
     });
   }
+
+  async getById(orgId: string, id: string) {
+    return prisma.salaryStructure.findFirst({
+      where: { id, orgId },
+      include: { employee: { select: { id: true, employeeCode: true, fullName: true } } }
+    });
+  }
+
+  async revise(input: {
+    orgId: string;
+    structureId: string;
+    effectiveFrom: string;
+    basic: string;
+    hra: string;
+    specialAllowance: string;
+    otherAllowance?: string;
+    professionalTax?: string;
+    epfApplicable: boolean;
+    esiApplicable: boolean;
+    reasonForRevision: string;
+  }) {
+    const data = {
+      basic: new Decimal(input.basic).toFixed(2),
+      hra: new Decimal(input.hra).toFixed(2),
+      specialAllowance: new Decimal(input.specialAllowance).toFixed(2),
+      otherAllowance: new Decimal(input.otherAllowance ?? "0").toFixed(2),
+      professionalTax: new Decimal(input.professionalTax ?? "0").toFixed(2),
+      epfApplicable: input.epfApplicable,
+      esiApplicable: input.esiApplicable
+    };
+    const effectiveFrom = new Date(input.effectiveFrom);
+    const effectiveToPrev = new Date(effectiveFrom);
+    effectiveToPrev.setDate(effectiveToPrev.getDate() - 1);
+
+    const existing = await prisma.salaryStructure.findFirst({
+      where: { id: input.structureId, orgId: input.orgId }
+    });
+    if (!existing) throw new Error("Salary structure not found");
+
+    const [updated, created] = await prisma.$transaction([
+      prisma.salaryStructure.update({
+        where: { id: input.structureId },
+        data: { effectiveTo: effectiveToPrev }
+      }),
+      prisma.salaryStructure.create({
+        data: {
+          orgId: input.orgId,
+          employeeId: existing.employeeId,
+          basic: data.basic,
+          hra: data.hra,
+          specialAllowance: data.specialAllowance,
+          otherAllowance: data.otherAllowance,
+          professionalTax: data.professionalTax,
+          epfApplicable: data.epfApplicable,
+          esiApplicable: data.esiApplicable,
+          effectiveFrom,
+          effectiveTo: null
+        }
+      })
+    ]);
+
+    return { previous: updated, new: created };
+  }
 }

@@ -9,11 +9,8 @@ const schema = z.object({
   orgId: z.string().min(1),
   actorRole: z.string().min(1),
   actorUserId: z.string().optional(),
-  employeeId: z.string().min(1).optional(),
-  employeeIds: z.array(z.string().min(1)).optional(),
-  departmentId: z.string().min(1).optional(),
-  shiftId: z.string().min(1),
-  assignmentType: z.enum(["INDIVIDUAL", "DEPARTMENT", "BULK"]).default("INDIVIDUAL"),
+  employeeId: z.string().min(1),
+  rotationId: z.string().min(1),
   effectiveFrom: z.string().datetime(),
   effectiveTo: z.string().datetime().optional()
 });
@@ -24,17 +21,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (forbidden) return forbidden;
 
   const service = new ShiftService();
-  const assignment = await service.assignShift(input);
-  const resourceId = assignment && typeof assignment === "object" && "id" in assignment ? assignment.id : undefined;
-  if (resourceId) {
-    await createAuditLog({
-      orgId: input.orgId,
-      actorUserId: input.actorUserId,
-      action: "SHIFT_ASSIGN",
-      resourceType: "SHIFT_ASSIGNMENT",
-      resourceId
-    });
-  }
-
+  const assignment = await service.assignRotation(input);
+  await createAuditLog({
+    orgId: input.orgId,
+    actorUserId: input.actorUserId,
+    action: "SHIFT_ROTATION_ASSIGN",
+    resourceType: "SHIFT_ROTATION_ASSIGNMENT",
+    resourceId: assignment.id
+  });
   return NextResponse.json(assignment, { status: 201 });
 }
