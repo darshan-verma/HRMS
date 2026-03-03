@@ -1,6 +1,6 @@
 import { createAuditLog } from "@/lib/audit/audit-log";
 import { PERMISSIONS } from "@/lib/auth/rbac";
-import { LeavePolicyService } from "@/src/modules/leave/leave-policy.service";
+import { LeaveService } from "@/src/modules/leave/leave.service";
 import { authorize } from "@/src/middlewares/authorize";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -9,8 +9,7 @@ const schema = z.object({
   orgId: z.string().min(1),
   actorRole: z.string().min(1),
   actorUserId: z.string().optional(),
-  year: z.number().int().min(2020).max(2100).optional(),
-  month: z.number().int().min(1).max(12).optional()
+  leaveRequestId: z.string().min(1)
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -18,19 +17,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const forbidden = authorize(input.actorRole, PERMISSIONS.LEAVE_WRITE);
   if (forbidden) return forbidden;
 
-  const now = new Date();
-  const year = input.year ?? now.getFullYear();
-  const month = input.month ?? now.getMonth() + 1;
-
-  const service = new LeavePolicyService();
-  const result = await service.runMonthlyAccrual(input.orgId, year, month);
+  const service = new LeaveService();
+  const leave = await service.cancel(input.orgId, input.leaveRequestId);
   await createAuditLog({
     orgId: input.orgId,
     actorUserId: input.actorUserId,
-    action: "LEAVE_ACCRUAL_RUN",
-    resourceType: "LEAVE_BALANCE",
-    metadata: result
+    action: "LEAVE_CANCEL",
+    resourceType: "LEAVE_REQUEST",
+    resourceId: input.leaveRequestId
   });
-
-  return NextResponse.json(result);
+  return NextResponse.json(leave);
 }

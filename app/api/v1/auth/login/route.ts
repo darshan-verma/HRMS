@@ -6,7 +6,8 @@ import { z } from "zod";
 
 const schema = z.object({
   email: z.email(),
-  orgId: z.string().min(1)
+  password: z.string().min(1, "Password is required"),
+  orgId: z.string().min(1).optional()
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -16,10 +17,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const body = schema.parse(await req.json());
   const authService = new AuthService();
-  const tokens = await authService.loginWithEmail(body);
+  const tokens = await authService.loginWithEmailAndPassword({
+    email: body.email,
+    password: body.password,
+    orgId: body.orgId
+  });
 
   await createAuditLog({
-    orgId: body.orgId,
+    orgId: body.orgId ?? process.env.SEED_ORG_ID ?? "seed-org",
     action: "AUTH_LOGIN",
     resourceType: "SESSION",
     ipAddress: ip

@@ -6,6 +6,12 @@ const schema = z.object({
   name: z.string().min(2)
 });
 
+export async function GET(): Promise<NextResponse> {
+  const service = new OrganizationService();
+  const orgs = await service.list();
+  return NextResponse.json(orgs);
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const input = schema.parse(await req.json());
   const service = new OrganizationService();

@@ -19,7 +19,7 @@ const createSchema = z.object({
 const listSchema = z.object({
   orgId: z.string().min(1),
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  pageSize: z.coerce.number().int().min(1).max(500).default(20),
   actorRole: z.string().min(1)
 });
 

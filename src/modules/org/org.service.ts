@@ -6,6 +6,13 @@ const createOrgSchema = z.object({
 });
 
 export class OrganizationService {
+  async list() {
+    return prisma.organization.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" }
+    });
+  }
+
   async create(input: unknown) {
     const data = createOrgSchema.parse(input);
     return prisma.organization.create({ data: { name: data.name } });

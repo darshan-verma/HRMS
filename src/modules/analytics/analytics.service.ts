@@ -81,6 +81,25 @@ export class AnalyticsService {
     return metrics;
   }
 
+  async getHeadcountByDepartment(orgId: string): Promise<{ departmentId: string | null; departmentName: string; count: number }[]> {
+    const grouped = await prisma.employee.groupBy({
+      by: ["departmentId"],
+      where: { orgId, isDeleted: false },
+      _count: { departmentId: true }
+    });
+    const deptIds = [...new Set(grouped.map((g) => g.departmentId).filter(Boolean))] as string[];
+    const departments = await prisma.department.findMany({
+      where: { id: { in: deptIds } },
+      select: { id: true, name: true }
+    });
+    const nameMap = Object.fromEntries(departments.map((d) => [d.id, d.name]));
+    return grouped.map((g) => ({
+      departmentId: g.departmentId,
+      departmentName: g.departmentId ? nameMap[g.departmentId] ?? "Unknown" : "Unassigned",
+      count: g._count.departmentId
+    }));
+  }
+
   async exportCsv(orgId: string, type: "payroll" | "leave" | "headcount"): Promise<string> {
     if (type === "payroll") {
       const rows = await prisma.payrollLedger.findMany({ where: { orgId }, orderBy: { period: "asc" } });

@@ -1,14 +1,46 @@
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "@/lib/auth/jwt";
 import { hashToken } from "@/lib/auth/token-store";
+import { verifyPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/prisma";
+
+const DEFAULT_ORG_ID = process.env.SEED_ORG_ID ?? "seed-org";
 
 type LoginInput = {
   email: string;
-  orgId: string;
+  orgId?: string;
+  password: string;
 };
 
 export class AuthService {
-  async loginWithEmail(input: LoginInput): Promise<{ accessToken: string; refreshToken: string }> {
+  async loginWithEmailAndPassword(input: LoginInput): Promise<{ accessToken: string; refreshToken: string }> {
+    const orgId = input.orgId ?? DEFAULT_ORG_ID;
+    const user = await prisma.user.findFirst({
+      where: {
+        email: input.email,
+        orgId,
+        isActive: true
+      }
+    });
+    if (!user) throw new Error("Invalid credentials");
+    if (!user.passwordHash) throw new Error("Invalid credentials");
+    const valid = await verifyPassword(input.password, user.passwordHash);
+    if (!valid) throw new Error("Invalid credentials");
+
+    const baseClaims = { sub: user.id, orgId: user.orgId, role: user.role };
+    const accessToken = await signAccessToken(baseClaims);
+    const refreshToken = await signRefreshToken(baseClaims);
+    const refreshClaims = await verifyRefreshToken(refreshToken);
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hashToken(refreshToken),
+        expiresAt: new Date((refreshClaims.exp ?? 0) * 1000)
+      }
+    });
+    return { accessToken, refreshToken };
+  }
+
+  async loginWithEmail(input: { email: string; orgId: string }): Promise<{ accessToken: string; refreshToken: string }> {
     const user = await prisma.user.findFirst({
       where: {
         email: input.email,

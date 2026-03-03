@@ -7,12 +7,15 @@ import { z } from "zod";
 
 const schema = z.object({
   idToken: z.string().min(20),
-  orgId: z.string().min(1),
+  orgId: z.string().min(1).optional(),
   role: z.enum(["EMPLOYEE", "MANAGER", "HR_ADMIN"]).default("EMPLOYEE")
 });
 
+const DEFAULT_ORG_ID = process.env.SEED_ORG_ID ?? "seed-org";
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = schema.parse(await req.json());
+  const orgId = body.orgId ?? DEFAULT_ORG_ID;
 
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   if (!googleClientId) {
@@ -35,13 +38,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   await prisma.user.upsert({
     where: {
       orgId_email: {
-        orgId: body.orgId,
+        orgId,
         email: payload.email
       }
     },
     update: { isActive: true },
     create: {
-      orgId: body.orgId,
+      orgId,
       email: payload.email,
       role: body.role,
       isActive: true
@@ -51,11 +54,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const authService = new AuthService();
   const tokens = await authService.loginWithEmail({
     email: payload.email,
-    orgId: body.orgId
+    orgId
   });
 
   await createAuditLog({
-    orgId: body.orgId,
+    orgId,
     action: "AUTH_GOOGLE_LOGIN",
     resourceType: "SESSION",
     metadata: { email: payload.email }

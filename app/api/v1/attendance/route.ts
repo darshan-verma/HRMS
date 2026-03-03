@@ -17,8 +17,8 @@ const schema = z.object({
 const listSchema = z.object({
   orgId: z.string().min(1),
   actorRole: z.string().min(1),
-  from: z.string().datetime(),
-  to: z.string().datetime(),
+  from: z.string().transform((s) => new Date(s)),
+  to: z.string().transform((s) => new Date(s)),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20)
 });
@@ -50,8 +50,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   return NextResponse.json(
     await service.list(
       query.orgId,
-      new Date(query.from),
-      new Date(query.to),
+      query.from,
+      query.to,
       query.page,
       query.pageSize
     )

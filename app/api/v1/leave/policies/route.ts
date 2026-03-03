@@ -12,7 +12,15 @@ const createSchema = z.object({
   leaveType: z.string().min(2),
   annualQuota: z.number().int().min(0),
   carryForward: z.boolean().default(false),
-  accrualPerMonth: z.string().min(1)
+  accrualPerMonth: z.string().min(1),
+  leaveCycle: z.enum(["CALENDAR_YEAR", "FINANCIAL_YEAR"]).default("CALENDAR_YEAR"),
+  eligibilityProbationMonths: z.number().int().min(0).default(0),
+  carryForwardLimit: z.number().int().min(0).optional(),
+  carryForwardExpiryMonths: z.number().int().min(0).optional(),
+  sandwichRuleCountWeekends: z.boolean().default(true),
+  accrualType: z.enum(["MONTHLY", "QUARTERLY", "YEARLY", "IMMEDIATE"]).default("MONTHLY"),
+  encashmentRate: z.string().optional(),
+  maxEncashableDays: z.number().int().min(0).optional()
 });
 
 const listSchema = z.object({
