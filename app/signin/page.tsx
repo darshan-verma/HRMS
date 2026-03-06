@@ -76,6 +76,7 @@ function SignInContent() {
       })
       .then((data: { accessToken: string; refreshToken: string }) => {
         setAuthTokens(data.accessToken, data.refreshToken, DEFAULT_ORG_ID);
+        window.dispatchEvent(new CustomEvent("hrms:auth-tokens-set"));
         router.push("/dashboard");
         router.refresh();
       })

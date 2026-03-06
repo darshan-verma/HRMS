@@ -8,7 +8,9 @@ import { z } from "zod";
 const schema = z.object({
   idToken: z.string().min(20),
   orgId: z.string().min(1).optional(),
-  role: z.enum(["EMPLOYEE", "MANAGER", "HR_ADMIN"]).default("EMPLOYEE")
+  role: z
+    .enum(["EMPLOYEE", "MANAGER", "HRBP", "PAYROLL_MANAGER", "HRMS_ADMIN", "HR_ADMIN"])
+    .default("EMPLOYEE")
 });
 
 const DEFAULT_ORG_ID = process.env.SEED_ORG_ID ?? "seed-org";

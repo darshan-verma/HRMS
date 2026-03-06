@@ -1,8 +1,12 @@
 "use client";
 
-import { Settings, Building2, Shield, Bell, Palette } from "lucide-react";
+import Link from "next/link";
+import { Building2, Shield, Bell, Palette, Users } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { useAuth } from "@/contexts/auth-context";
+import { hasPermission } from "@/lib/auth/rbac";
+import { PERMISSIONS } from "@/lib/auth/rbac";
 
 const settingsSections = [
   {
@@ -36,9 +40,30 @@ const settingsSections = [
 ];
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const role = (user?.role ?? "").toUpperCase();
+  const showControl = hasPermission(role, PERMISSIONS.USER_READ);
+
   return (
     <DashboardLayout title="Settings" subtitle="Manage your HRMS configuration">
       <div className="grid gap-4 sm:grid-cols-2">
+        {showControl && (
+          <Link href="/settings/users">
+            <Card className="cursor-pointer transition-all hover:border-brand-200 hover:shadow-md">
+              <CardContent className="flex items-start gap-4 pt-5">
+                <div className="rounded-xl p-3 bg-slate-100 text-slate-600">
+                  <Users size={22} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Control</h3>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Create and manage profile users (email, password, role).
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
         {settingsSections.map((section) => (
           <Card key={section.title} className="cursor-pointer transition-all hover:border-brand-200 hover:shadow-md">
             <CardContent className="flex items-start gap-4 pt-5">

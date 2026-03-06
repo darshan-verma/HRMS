@@ -3,60 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  Users,
-  Clock,
-  CalendarOff,
-  Wallet,
-  UserPlus,
-  BarChart3,
-  Timer,
-  Settings,
-  HelpCircle,
   ChevronLeft,
-  Building2
+  Building2,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-
-const navItems = [
-  {
-    label: "Main",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/employees", label: "Employees", icon: Users }
-    ]
-  },
-  {
-    label: "Time & Attendance",
-    items: [
-      { href: "/attendance-ui", label: "Attendance", icon: Clock },
-      { href: "/leave-ui", label: "Leave", icon: CalendarOff },
-      { href: "/shifts", label: "Shifts", icon: Timer }
-    ]
-  },
-  {
-    label: "Finance",
-    items: [{ href: "/payroll-ui", label: "Payroll", icon: Wallet }]
-  },
-  {
-    label: "Talent",
-    items: [{ href: "/recruitment-ui", label: "Recruitment", icon: UserPlus }]
-  },
-  {
-    label: "Insights",
-    items: [{ href: "/analytics", label: "Analytics", icon: BarChart3 }]
-  }
-];
-
-const bottomItems = [
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/help", label: "Help Center", icon: HelpCircle }
-];
+import { useAuthOptional } from "@/contexts/auth-context";
+import { getNavItemsByRole, getBottomNavItemsByRole, getRoleLabel } from "@/lib/auth/nav-by-role";
 
 export function Sidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const { user, logout } = useAuthOptional() ?? { user: null, logout: () => {} };
+
+  const navGroups = user ? getNavItemsByRole((user.role ?? "").toUpperCase()) : [];
+  const bottomItems = user ? getBottomNavItemsByRole((user.role ?? "").toUpperCase()) : [];
+
+  const displayName = user?.email ? user.email.split("@")[0].replace(/[._]/g, " ") : "User";
+  const roleLabel = user ? getRoleLabel((user.role ?? "").toUpperCase()) : "Guest";
 
   return (
     <aside
@@ -65,7 +30,6 @@ export function Sidebar() {
         collapsed ? "w-[68px]" : "w-[260px]"
       )}
     >
-      {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-white">
           <Building2 size={20} />
@@ -87,9 +51,8 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {navItems.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.label} className="mb-6">
             {!collapsed && (
               <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
@@ -131,7 +94,6 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom items */}
       <div className="border-t border-slate-800 px-3 py-3">
         <ul className="space-y-0.5">
           {bottomItems.map((item) => {
@@ -161,17 +123,32 @@ export function Sidebar() {
               </li>
             );
           })}
+          {user && (
+            <li>
+              <button
+                type="button"
+                onClick={logout}
+                className={cn(
+                  "group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-400 transition-all hover:bg-sidebar-hover hover:text-white",
+                  collapsed && "justify-center px-2"
+                )}
+                title={collapsed ? "Sign out" : undefined}
+              >
+                <LogOut size={20} className="shrink-0" />
+                {!collapsed && <span>Sign out</span>}
+              </button>
+            </li>
+          )}
         </ul>
 
-        {/* User Avatar */}
-        {!collapsed && (
+        {!collapsed && user && (
           <div className="mt-3 flex items-center gap-3 rounded-lg bg-sidebar-hover px-3 py-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">
-              DA
+              {displayName.slice(0, 2).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-white">Darshan Admin</p>
-              <p className="truncate text-[11px] text-slate-400">HR Administrator</p>
+              <p className="truncate text-sm font-medium text-white">{displayName}</p>
+              <p className="truncate text-[11px] text-slate-400">{roleLabel}</p>
             </div>
           </div>
         )}

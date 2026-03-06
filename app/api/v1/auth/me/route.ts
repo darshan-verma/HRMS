@@ -13,7 +13,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const token = readBearerToken(req.headers.get("authorization"));
   if (!token) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const claims = await verifyAccessToken(token);
+  let claims;
+  try {
+    claims = await verifyAccessToken(token);
+  } catch (err: unknown) {
+    const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : "";
+    if (code === "ERR_JWT_EXPIRED" || code === "ERR_JWT_CLAIM_VALIDATION_FAILED") {
+      return NextResponse.json({ message: "Token expired", code: "TOKEN_EXPIRED" }, { status: 401 });
+    }
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
   if (claims.type !== "access") {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }

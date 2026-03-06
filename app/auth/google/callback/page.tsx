@@ -45,6 +45,7 @@ function AuthGoogleCallbackContent() {
       })
       .then((data: { accessToken: string; refreshToken: string }) => {
         setAuthTokens(data.accessToken, data.refreshToken, DEFAULT_ORG_ID);
+        window.dispatchEvent(new CustomEvent("hrms:auth-tokens-set"));
         router.replace("/dashboard");
         router.refresh();
       })

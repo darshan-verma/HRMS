@@ -13,6 +13,9 @@ import {
   ChevronRight
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { useAuth } from "@/contexts/auth-context";
+import { hasPermission } from "@/lib/auth/rbac";
+import { PERMISSIONS } from "@/lib/auth/rbac";
 import { StatCard } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +56,6 @@ const statusBadge: Record<string, "success" | "danger" | "warning" | "info"> = {
 };
 
 const ORG_ID = "seed-org";
-const ACTOR_ROLE = "HR_ADMIN";
 const PAGE_SIZE = 10;
 
 function mapItem(raw: Record<string, unknown>): EmployeeItem {
@@ -87,6 +89,10 @@ function mapItem(raw: Record<string, unknown>): EmployeeItem {
 }
 
 export default function EmployeesPage() {
+  const { user } = useAuth();
+  const actorRole = (user?.role ?? "").toUpperCase() || "EMPLOYEE";
+  const canPayrollWrite = hasPermission(actorRole, PERMISSIONS.PAYROLL_WRITE);
+
   const [employees, setEmployees] = useState<EmployeeItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -110,11 +116,11 @@ export default function EmployeesPage() {
     () =>
       new URLSearchParams({
         orgId: ORG_ID,
-        actorRole: ACTOR_ROLE,
+        actorRole,
         page: String(page),
         pageSize: String(PAGE_SIZE)
       }).toString(),
-    [page]
+    [page, actorRole]
   );
 
   const loadEmployees = useCallback(async () => {
@@ -133,13 +139,13 @@ export default function EmployeesPage() {
   }, [query]);
 
   const loadDepartments = useCallback(async () => {
-    const q = new URLSearchParams({ orgId: ORG_ID, actorRole: ACTOR_ROLE }).toString();
+    const q = new URLSearchParams({ orgId: ORG_ID, actorRole }).toString();
     const res = await fetch(`/api/v1/departments?${q}`, { cache: "no-store" });
     if (res.ok) {
       const list = (await res.json()) as DepartmentOption[];
       setDepartments(Array.isArray(list) ? list : []);
     }
-  }, []);
+  }, [actorRole]);
 
   useEffect(() => {
     void loadEmployees();
@@ -206,12 +212,12 @@ export default function EmployeesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
+          actorRole,
           employeeId: editingId,
           fullName: formFullName.trim(),
           designation: formDesignation.trim(),
           departmentId: (formDepartmentId === "" || formDepartmentId === "none") ? null : formDepartmentId,
-          salaryPlain: formSalary.trim() || undefined
+          salaryPlain: canPayrollWrite ? (formSalary.trim() || undefined) : undefined
         })
       });
       if (!res.ok) {
@@ -235,7 +241,7 @@ export default function EmployeesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
+          actorRole,
           employeeId: deleteId
         })
       });
@@ -488,14 +494,16 @@ export default function EmployeesPage() {
               </SelectContent>
             </Select>
           </FormField>
-          <FormField label="Salary (optional)">
-            <Input
-              type="text"
-              value={formSalary}
-              onChange={(e) => setFormSalary(e.target.value)}
-              placeholder="Optional"
-            />
-          </FormField>
+          {canPayrollWrite && (
+            <FormField label="Salary (optional)">
+              <Input
+                type="text"
+                value={formSalary}
+                onChange={(e) => setFormSalary(e.target.value)}
+                placeholder="Optional"
+              />
+            </FormField>
+          )}
           {formError && (
             <p className="mb-4 text-sm text-rose-600">{formError}</p>
           )}

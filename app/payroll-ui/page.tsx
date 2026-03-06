@@ -24,6 +24,9 @@ import {
   Unlock
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
+import { useAuth } from "@/contexts/auth-context";
+import { hasPermission } from "@/lib/auth/rbac";
+import { PERMISSIONS } from "@/lib/auth/rbac";
 import { StatCard } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,8 +44,6 @@ import {
 } from "@/components/ui/select";
 
 const ORG_ID = "seed-org";
-const ACTOR_ROLE = "HR_ADMIN";
-const ACTOR_USER_ID = "seed-user"; // TODO: from auth/me when available
 
 type PayrollRun = {
   id: string;
@@ -119,6 +120,11 @@ const runStatusBadge: Record<string, "success" | "danger" | "warning" | "info"> 
 };
 
 export default function PayrollUiPage() {
+  const { user } = useAuth();
+  const actorRole = (user?.role ?? "").toUpperCase() || "EMPLOYEE";
+  const actorUserId = user?.id;
+  const canPayrollWrite = hasPermission(actorRole, PERMISSIONS.PAYROLL_WRITE);
+
   const [error, setError] = useState<string | null>(null);
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [structures, setStructures] = useState<SalaryStructure[]>([]);
@@ -189,8 +195,8 @@ export default function PayrollUiPage() {
   const [taxResult, setTaxResult] = useState<string | null>(null);
 
   const query = useMemo(
-    () => new URLSearchParams({ orgId: ORG_ID, actorRole: ACTOR_ROLE }).toString(),
-    []
+    () => new URLSearchParams({ orgId: ORG_ID, actorRole }).toString(),
+    [actorRole]
   );
 
   const loadData = useCallback(async () => {
@@ -215,7 +221,7 @@ export default function PayrollUiPage() {
     setEmployeesLoading(true);
     const q = new URLSearchParams({
       orgId: ORG_ID,
-      actorRole: ACTOR_ROLE,
+      actorRole,
       page: "1",
       pageSize: "100"
     }).toString();
@@ -305,7 +311,7 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
+          actorRole: actorRole,
           period
         })
       });
@@ -331,7 +337,7 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
+          actorRole: actorRole,
           payrollRunId: run.id,
           regime: "NEW",
           runInline: true
@@ -352,7 +358,7 @@ export default function PayrollUiPage() {
     setRunSummaryLoading(true);
     setRunSummary(null);
     try {
-      const q = new URLSearchParams({ orgId: ORG_ID, actorRole: ACTOR_ROLE }).toString();
+      const q = new URLSearchParams({ orgId: ORG_ID, actorRole: actorRole }).toString();
       const res = await fetch(`/api/v1/payroll/runs/${payrollRunId}/summary?${q}`, {
         cache: "no-store"
       });
@@ -373,8 +379,8 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
-          actorUserId: ACTOR_USER_ID,
+          actorRole: actorRole,
+          actorUserId: actorUserId,
           payrollRunId: run.id
         })
       });
@@ -398,8 +404,8 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
-          actorUserId: ACTOR_USER_ID,
+          actorRole: actorRole,
+          actorUserId: actorUserId,
           payrollRunId: run.id
         })
       });
@@ -423,8 +429,8 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
-          actorUserId: ACTOR_USER_ID,
+          actorRole: actorRole,
+          actorUserId: actorUserId,
           payrollRunId: run.id
         })
       });
@@ -442,7 +448,7 @@ export default function PayrollUiPage() {
   function handleBankExport(run: PayrollRun) {
     const params = new URLSearchParams({
       orgId: ORG_ID,
-      actorRole: ACTOR_ROLE,
+      actorRole: actorRole,
       payrollRunId: run.id
     });
     window.open(`/api/v1/payroll/runs/bank-export?${params}`, "_blank", "noopener");
@@ -457,7 +463,7 @@ export default function PayrollUiPage() {
         fetch(
           `/api/v1/payroll/payslips?${new URLSearchParams({
             orgId: ORG_ID,
-            actorRole: ACTOR_ROLE,
+            actorRole: actorRole,
             payrollRunId: run.id
           })}`,
           { cache: "no-store" }
@@ -465,7 +471,7 @@ export default function PayrollUiPage() {
         fetch(
           `/api/v1/payroll/runs/${run.id}/summary?${new URLSearchParams({
             orgId: ORG_ID,
-            actorRole: ACTOR_ROLE
+            actorRole: actorRole
           })}`,
           { cache: "no-store" }
         )
@@ -490,7 +496,7 @@ export default function PayrollUiPage() {
     setViewStructureDetail(null);
     setViewStructureLoading(true);
     try {
-      const q = new URLSearchParams({ orgId: ORG_ID, actorRole: ACTOR_ROLE }).toString();
+      const q = new URLSearchParams({ orgId: ORG_ID, actorRole: actorRole }).toString();
       const res = await fetch(`/api/v1/payroll/salary-structures/${id}?${q}`, { cache: "no-store" });
       if (res.ok) {
         const data = (await res.json()) as SalaryStructure;
@@ -553,7 +559,7 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
+          actorRole: actorRole,
           structureId: reviseStructure.id,
           effectiveFrom: effectiveFrom.toISOString(),
           basic: String(basic),
@@ -603,7 +609,7 @@ export default function PayrollUiPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orgId: ORG_ID,
-          actorRole: ACTOR_ROLE,
+          actorRole: actorRole,
           employeeId: structEmployeeId,
           basic: String(basic),
           hra: String(hra),
@@ -648,7 +654,7 @@ export default function PayrollUiPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        actorRole: ACTOR_ROLE,
+        actorRole: actorRole,
         annualTaxableIncome: taxIncome,
         regime: taxRegime
       })
@@ -754,19 +760,23 @@ export default function PayrollUiPage() {
       </Card>
 
       <div className="mt-6 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => setCreateRunOpen(true)}>
-          <Plus size={14} /> New payroll run
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            setAddStructureOpen(true);
-            resetStructForm();
-          }}
-        >
-          <Plus size={14} /> Add salary structure
-        </Button>
+        {canPayrollWrite && (
+          <>
+            <Button size="sm" onClick={() => setCreateRunOpen(true)}>
+              <Plus size={14} /> New payroll run
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setAddStructureOpen(true);
+                resetStructForm();
+              }}
+            >
+              <Plus size={14} /> Add salary structure
+            </Button>
+          </>
+        )}
         <Button variant="outline" size="sm" onClick={loadData}>
           <RefreshCw size={14} /> Refresh
         </Button>
@@ -847,7 +857,7 @@ export default function PayrollUiPage() {
                             >
                               <Eye size={14} />
                             </Button>
-                            {(r.status === "DRAFT" || r.status === "PENDING") && (
+                            {canPayrollWrite && (r.status === "DRAFT" || r.status === "PENDING") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -862,7 +872,7 @@ export default function PayrollUiPage() {
                                 )}
                               </Button>
                             )}
-                            {r.status === "AWAITING_APPROVAL" && (
+                            {canPayrollWrite && r.status === "AWAITING_APPROVAL" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -877,7 +887,7 @@ export default function PayrollUiPage() {
                                 )}
                               </Button>
                             )}
-                            {(r.status === "APPROVED" || r.status === "COMPLETED") && (
+                            {canPayrollWrite && (r.status === "APPROVED" || r.status === "COMPLETED") && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -892,7 +902,7 @@ export default function PayrollUiPage() {
                                 )}
                               </Button>
                             )}
-                            {r.status === "LOCKED" && (
+                            {canPayrollWrite && r.status === "LOCKED" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -907,9 +917,10 @@ export default function PayrollUiPage() {
                                 )}
                               </Button>
                             )}
-                            {["AWAITING_APPROVAL", "APPROVED", "COMPLETED", "LOCKED"].includes(
-                              r.status
-                            ) && (
+                            {canPayrollWrite &&
+                              ["AWAITING_APPROVAL", "APPROVED", "COMPLETED", "LOCKED"].includes(
+                                r.status
+                              ) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -1022,14 +1033,16 @@ export default function PayrollUiPage() {
                               >
                                 <History size={14} />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openRevise(s)}
-                                title="Revise"
-                              >
-                                <RotateCcw size={14} />
-                              </Button>
+                              {canPayrollWrite && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openRevise(s)}
+                                  title="Revise"
+                                >
+                                  <RotateCcw size={14} />
+                                </Button>
+                              )}
                             </div>
                           </TD>
                         </tr>

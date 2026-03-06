@@ -1,5 +1,5 @@
 import { createAuditLog } from "@/lib/audit/audit-log";
-import { PERMISSIONS } from "@/lib/auth/rbac";
+import { PERMISSIONS, hasPermission } from "@/lib/auth/rbac";
 import { EmployeeService } from "@/src/modules/employee/employee.service";
 import { authorize } from "@/src/middlewares/authorize";
 import { NextRequest, NextResponse } from "next/server";
@@ -46,6 +46,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const forbidden = authorize(input.actorRole, PERMISSIONS.EMPLOYEE_WRITE);
   if (forbidden) return forbidden;
 
+  // Only roles with PAYROLL_WRITE may set salary on create
+  if (!hasPermission(input.actorRole, PERMISSIONS.PAYROLL_WRITE)) {
+    delete (input as { salaryPlain?: string }).salaryPlain;
+  }
+
   const service = new EmployeeService();
   const employee = await service.create(input);
 
@@ -75,6 +80,11 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const input = updateSchema.parse(await req.json());
   const forbidden = authorize(input.actorRole, PERMISSIONS.EMPLOYEE_WRITE);
   if (forbidden) return forbidden;
+
+  // Only roles with PAYROLL_WRITE may set or change salary
+  if (!hasPermission(input.actorRole, PERMISSIONS.PAYROLL_WRITE)) {
+    delete (input as { salaryPlain?: string }).salaryPlain;
+  }
 
   const service = new EmployeeService();
   const employee = await service.update(input);
